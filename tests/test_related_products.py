@@ -5,7 +5,7 @@ from utils.test_data import MAIN_PRODUCT, MAX_RELATED_PRODUCTS
 def test_related_products_section():
 
     with sync_playwright() as p:
-        browser = p.chromiumm.launch(headless=False)
+        browser = p.chromium.launch(headless=False)
         page = browser.new_page()
         page.goto("https://www.ebay.com")
 
