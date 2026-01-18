@@ -18,6 +18,12 @@ class ProductPage:
         # Locator for first product in search results
         self.first_product_locator = 'li.s-card a.s-card__link'
 
+        # breadcrumb category links
+        self.main_product_category = 'ul.breadcrumb li a'
+
+        # main product price
+        self.main_product_price = 'span[itemprop="price"]'
+
     def search_product(self, product_name: str):
         """Search a product on eBay."""
         self.page.fill(self.search_box, product_name)
@@ -83,3 +89,57 @@ class ProductPage:
                 break
         return count
 
+
+    def get_main_product_category(self) -> str:
+        """Return the main product's category (e.g., 'Wallets')."""
+        category_elements = self.page.locator(self.main_product_category)
+        # Usually the last breadcrumb link is the actual category
+        return category_elements.nth(-1).inner_text().strip()
+
+    def get_main_product_price(self) -> float:
+        """Return the main product's price as a float."""
+        price_text = self.page.locator(self.main_product_price).inner_text().strip()
+        # Remove currency symbol and commas
+        price_text = price_text.replace('LKR', '').replace('$', '').replace(',', '')
+        return float(price_text)
+
+    def get_related_products_categories_and_prices(self):
+        """Return a list of tuples: (category, price) for each related product."""
+        related_items = self.page.locator(self.similar_items_link)
+        data = []
+        for i in range(related_items.count()):
+            item = related_items.nth(i)
+            # Category from data attribute or breadcrumb inside each related item
+            try:
+                category = item.locator('span.s-item__category').inner_text().strip()
+            except:
+                category = "Unknown"
+
+            # Price
+            try:
+                price_text = item.locator('span.s-item__price').inner_text().strip()
+                price_text = price_text.replace('LKR', '').replace('$', '').replace(',', '')
+                price = float(price_text)
+            except:
+                price = 0.0
+
+            data.append((category, price))
+        return data
+
+    def verify_related_products_category_and_price(self, price_tolerance_percent=10):
+        """Verify each related product is in same category and within ±10% price range."""
+        main_category = self.get_main_product_category()
+        main_price = self.get_main_product_price()
+        errors = []
+
+        for cat, price in self.get_related_products_categories_and_prices():
+            # Category check
+            if cat != main_category:
+                errors.append(f"Category mismatch: {cat} != {main_category}")
+            # Price check
+            lower_bound = main_price * (1 - price_tolerance_percent / 100)
+            upper_bound = main_price * (1 + price_tolerance_percent / 100)
+            if price < lower_bound or price > upper_bound:
+                errors.append(f"Price {price} out of range ±{price_tolerance_percent}% of {main_price}")
+
+        return errors
